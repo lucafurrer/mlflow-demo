@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: ./mlflow.Dockerfile
-    command: [mlflow, server, --host, 0.0.0.0,--backend-store-uri, mysql+pymysql://root:password@mysql:3306/mlflow,--default-artifact-root, s3://mlflow/]
+    command: [mlflow, server, --host, 0.0.0.0,--backend-store-uri, mysql+pymysql://root:password@mysql:3306/mlflow ,--default-artifact-root, s3://mlflow/]
     ports:
       - "5000:5000"
     environment: 
