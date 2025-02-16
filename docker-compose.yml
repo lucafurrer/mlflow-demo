@@ -1,37 +1,86 @@
-version: "3.3"
+version: "3.7"
 services: 
-  mlflow:
-    build:
-      context: .
-      dockerfile: ./mlflow.Dockerfile
-    command: [mlflow, server, --host, 0.0.0.0,--backend-store-uri, mysql+pymysql://root:password@mysql:3306/mlflow ,--default-artifact-root, s3://mlflow/]
+
+  mlflow-deployments:
+    image: mlflow
+    build: ./mlflow
+    command: "mlflow deployments start-server --config-path /app/config.yaml    --host 0.0.0.0 --port 5000 --workers 1"
+    expose:
+      - 5000
+    ports: 
+      - "5001:5000"
+    volumes:
+      - ./mlflow/config.yaml:/app/config.yaml:ro
+  mlflow-server:
+    image: mlflow
+    build: ./mlflow
+    command: [mlflow, server, --host, 0.0.0.0,--backend-store-uri, postgresql://user:password@postgres:5432/mlflowdb ,--default-artifact-root, s3://bucket/]
     ports:
       - "5000:5000"
     environment: 
       MLFLOW_S3_ENDPOINT_URL: http://storage:9000
-      AWS_ACCESS_KEY_ID: minio
-      AWS_SECRET_ACCESS_KEY: password
+      AWS_ACCESS_KEY_ID: minio_user
+      AWS_SECRET_ACCESS_KEY: minio_password
       AWS_DEFAULT_REGION: us-east-1
+      MLFLOW_DEPLOYMENTS_TARGET: http://mlflow-deployments:5000
 
-  mysql:
-    image: mysql
-    command: --default-authentication-plugin=mysql_native_password
-    restart: always
-    environment: 
-      MYSQL_DATABASE: mlflow
-      MYSQL_ROOT_PASSWORD: password
+  llm:
+    image: llamacpp
+    build: ./llamacpp
+    command: "--host 0.0.0.0 --port 8080 -m /opt/llms/Mistral-7B-Instruct-v0.3.Q5_K_M.gguf -ngl 24 -c 1024"
     ports:
-      - "3306:3306"
+      - 8080:8080
     volumes:
-      - ./data/mysql:/var/lib/mysql
+      - ./data/llms:/opt/llms
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
 
-  storage:
-    image: minio/minio
+  # PostgreSQL database
+  postgres:
+    image: postgres:latest    
     environment:
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: password
-    command: [minio, server, /data]
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mlflowdb
+    ports:
+      - 5433:5432
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+  # MinIO server
+  minio:
+    image: minio/minio
+    expose:
+      - "9000"
     ports:
       - "9000:9000"
-    volumes:
-      - ./data/minio:/data
+      # MinIO Console is available at http://localhost:9001
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: "minio_user"
+      MINIO_ROOT_PASSWORD: "minio_password"
+    healthcheck:
+      test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+      interval: 1s
+      timeout: 10s
+      retries: 5
+    command: server /data --console-address ":9001"
+  # Create a bucket named "bucket" if it doesn't exist
+  minio-create-bucket:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      bash -c "
+      mc alias set minio http://minio:9000 minio_user minio_password &&
+      if ! mc ls minio/bucket; then
+        mc mb minio/bucket
+      else
+        echo 'bucket already exists'
+      fi
+      "

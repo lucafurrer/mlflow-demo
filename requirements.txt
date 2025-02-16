@@ -1,4 +1,4 @@
-mlflow>1.14.0
+mlflow[GenAI]
 boto3
 numpy
 scikit-learn
