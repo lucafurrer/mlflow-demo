@@ -27,6 +27,7 @@ services:
   llm:
     image: llamacpp
     build: ./llamacpp
+    #command: "--host 0.0.0.0 --port 8080 -m /opt/llms/Llama-3.2-3B-Instruct-Q5_K_M.gguf -ngl 24 -c 1024"
     command: "--host 0.0.0.0 --port 8080 -m /opt/llms/Mistral-7B-Instruct-v0.3.Q5_K_M.gguf -ngl 24 -c 1024"
     ports:
       - 8080:8080
@@ -39,6 +40,27 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+
+
+  ollama:
+    volumes:
+      - ./data/ollama:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:latest
+    ports:
+      - 7869:11434
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # PostgreSQL database
   postgres:

@@ -5,3 +5,6 @@ scikit-learn
 seaborn
 langchain
 langchain-community
+langgraph
+wikipedia
+tavily-python

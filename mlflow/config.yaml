@@ -7,3 +7,30 @@ endpoints:
       config:
         openai_api_key: ""
         openai_api_base: http://llm:8080
+
+  - name: llamachat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai    
+      name: llama3.2:3b
+      config:
+        openai_api_key: ""
+        openai_api_base: http://ollama:11434/v1
+
+  - name: llamacompletion
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: llama3.2:3b
+      config:
+        openai_api_key: ""
+        openai_api_base: http://ollama:11434/v1
+
+  - name: embedding
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: openai
+      name: llama3.2:3b
+      config:
+        openai_api_key: ""
+      openai_api_base: http://ollama:11434/v1
